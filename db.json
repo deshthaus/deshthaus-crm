@@ -4,14 +4,14 @@
       "id": 1,
       "name": "Ануар Дешт",
       "email": "admin@deshthaus.kz",
-      "password": "$2a$10$lISvKGX72nUbnMJ3g5bhwuskDb1ba2KWjNGt3LgI0m1z62xhCtKga",
+      "password": "$2a$10$Bixrw.x1TSoQXh9naUx/We5OiAFrbcDyaF4QCh1onmNixF2OTb3xS",
       "role": "admin"
     },
     {
       "id": 2,
       "name": "Архитектор 2",
       "email": "arch2@deshthaus.kz",
-      "password": "$2a$10$l/DFqTH48V3o3CiVWceBDei5wyONc3Fv9JUAPc4bek032Ly2pWG1y",
+      "password": "$2a$10$C/CgLB0b1d1wSxIWUYp8X.Tru3Ysq/NM.WP78E4Yif8v1l6Bmf4.y",
       "role": "member"
     }
   ],
@@ -185,7 +185,7 @@
       "sub": "Смета по вилле — 06.05",
       "type": "warn",
       "unread": true,
-      "created_at": "2026-05-10T14:39:32.279Z"
+      "created_at": "2026-05-10T15:57:03.569Z"
     },
     {
       "id": 2,
@@ -194,7 +194,7 @@
       "sub": "Moda Group — бутик",
       "type": "ok",
       "unread": true,
-      "created_at": "2026-05-10T14:39:32.280Z"
+      "created_at": "2026-05-10T15:57:03.570Z"
     }
   ],
   "finance": [
