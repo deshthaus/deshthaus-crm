@@ -2,12 +2,7 @@ const router = require('express').Router();
 const db = require('../db/db');
 
 router.get('/', (req, res) => {
-  const items = db.get('notifications')
-    .filter(n => n.user_id === req.user.id)
-    .orderBy('created_at', 'desc')
-    .take(30)
-    .value();
-  res.json(items);
+  res.json(db.get('notifications').filter(n => !n.user_id || n.user_id === req.user.id).orderBy('created_at', 'desc').take(30).value());
 });
 
 router.patch('/:id/read', (req, res) => {
@@ -16,8 +11,8 @@ router.patch('/:id/read', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { text, sub, type, user_id } = req.body;
-  const n = { id: Date.now(), user_id: user_id || req.user.id, text, sub: sub || '', type: type || 'info', unread: true, created_at: new Date().toISOString() };
+  const { text, sub, type } = req.body;
+  const n = { id: Date.now(), user_id: req.user.id, text, sub: sub || '', type: type || 'info', unread: true, created_at: new Date().toISOString() };
   db.get('notifications').push(n).write();
   res.json(n);
 });

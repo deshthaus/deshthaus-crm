@@ -14,17 +14,18 @@ app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use('/uploads', express.static(uploadsDir));
 
+const auth = require('./middleware/auth');
+
 app.use('/api/auth',          require('./routes/auth'));
-app.use('/api/projects',      require('./middleware/auth'), require('./routes/projects'));
-app.use('/api/clients',       require('./middleware/auth'), require('./routes/clients'));
-app.use('/api/tasks',         require('./middleware/auth'), require('./routes/tasks'));
-app.use('/api/files',         require('./middleware/auth'), require('./routes/files'));
-app.use('/api/notifications', require('./middleware/auth'), require('./routes/notifications'));
-app.use('/api/finance',       require('./middleware/auth'), require('./routes/finance'));
+app.use('/api/projects',      auth, require('./routes/projects'));
+app.use('/api/clients',       auth, require('./routes/clients'));
+app.use('/api/tasks',         auth, require('./routes/tasks'));
+app.use('/api/files',         auth, require('./routes/files'));
+app.use('/api/notifications', auth, require('./routes/notifications'));
+app.use('/api/finance',       auth, require('./routes/finance'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 app.listen(PORT, () => {
   console.log(`\n✅ Deshthaus CRM запущен: http://localhost:${PORT}`);
-  console.log('   Остановить: Ctrl+C\n');
 });
