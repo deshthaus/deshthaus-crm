@@ -43,4 +43,9 @@ router.put('/deals/:id', (req, res) => {
   res.json(db.get('deals').find({ id: Number(req.params.id) }).value());
 });
 
+router.delete('/deals/:id', (req, res) => {
+  db.get('deals').remove({ id: Number(req.params.id) }).write();
+  res.json({ ok: true });
+});
+
 module.exports = router;
