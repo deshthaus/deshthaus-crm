@@ -1,64 +1,136 @@
+require('dotenv').config();
+const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
-const low = require('lowdb');
-const FileSync = require('lowdb/adapters/FileSync');
-const path = require('path');
 
-const adapter = new FileSync(path.join(__dirname, 'db.json'));
-const db = low(adapter);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
 
-db.defaults({ users:[], clients:[], projects:[], tasks:[], files:[], notifications:[], finance:[], deals:[] }).write();
+async function init() {
+  console.log('🔧 Создаём таблицы...');
 
-// Clear and reseed
-db.set('users', [
-  { id:1, name:'Ануар Дешт', email:'admin@deshthaus.kz', password: bcrypt.hashSync('admin123', 10), role:'admin' },
-  { id:2, name:'Архитектор 2', email:'arch2@deshthaus.kz', password: bcrypt.hashSync('pass123', 10), role:'member' },
-]).write();
+  // Users
+  await supabase.rpc('exec_sql', { sql: `
+    CREATE TABLE IF NOT EXISTS users (
+      id BIGSERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT,
+      password TEXT,
+      role TEXT DEFAULT 'member',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  ` }).catch(() => {});
 
-db.set('clients', [
-  { id:1, name:'Nura Invest', type:'Корпоративный', phone:'+7 701 000 0001', email:'', budget:42, budget_max:60, color:'#1a1f5e', notes:'' },
-  { id:2, name:'Арман Сейткали', type:'Частный', phone:'+7 701 000 0002', email:'', budget:8.5, budget_max:30, color:'#e8401c', notes:'' },
-  { id:3, name:'Moda Group', type:'Коммерческий', phone:'+7 701 000 0003', email:'', budget:5.2, budget_max:20, color:'#c07000', notes:'' },
-  { id:4, name:'Kaztech LLP', type:'Корпоративный', phone:'+7 701 000 0004', email:'', budget:18, budget_max:50, color:'#1a1f5e', notes:'' },
-  { id:5, name:'Кайрат Сейткали', type:'Частный', phone:'+7 701 000 0005', email:'', budget:12, budget_max:30, color:'#2a8a5a', notes:'' },
-]).write();
+  // Clients
+  await supabase.rpc('exec_sql', { sql: `
+    CREATE TABLE IF NOT EXISTS clients (
+      id BIGSERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT DEFAULT 'Частный',
+      phone TEXT,
+      email TEXT,
+      budget FLOAT DEFAULT 0,
+      budget_max FLOAT DEFAULT 0,
+      color TEXT DEFAULT '#1a1f5e',
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  ` }).catch(() => {});
 
-db.set('projects', [
-  { id:1, name:'Жилой комплекс Nura', client_id:1, client_name:'Nura Invest', status:'Строительство', budget:'42 000 000', color:'#1a1f5e', deadline:'2026-12-01', description:'' },
-  { id:2, name:'Ресторан Arman', client_id:2, client_name:'Арман Сейткали', status:'Завершён', budget:'8 500 000', color:'#2a8a5a', deadline:'2026-04-01', description:'' },
-  { id:3, name:'Частный дом Сейткали', client_id:5, client_name:'Кайрат Сейткали', status:'Дизайн', budget:'12 000 000', color:'#e8401c', deadline:'2026-09-01', description:'' },
-  { id:4, name:'Бутик Moda', client_id:3, client_name:'Moda Group', status:'Дизайн', budget:'5 200 000', color:'#c07000', deadline:'2026-07-01', description:'' },
-  { id:5, name:'Офис Kaztech', client_id:4, client_name:'Kaztech LLP', status:'Строительство', budget:'18 000 000', color:'#1a1f5e', deadline:'2026-10-01', description:'' },
-]).write();
+  // Projects
+  await supabase.rpc('exec_sql', { sql: `
+    CREATE TABLE IF NOT EXISTS projects (
+      id BIGSERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      client_id BIGINT,
+      client_name TEXT,
+      status TEXT DEFAULT 'Дизайн',
+      budget TEXT,
+      deadline DATE,
+      description TEXT,
+      color TEXT DEFAULT '#1a1f5e',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  ` }).catch(() => {});
 
-db.set('tasks', [
-  { id:1, text:'Отправить концепт Nura клиенту', project_id:1, project_name:'Жилой комплекс Nura', done:false, due:'2026-05-10', priority:'high' },
-  { id:2, text:'Скорректировать планировку ресторана Arman', project_id:2, project_name:'Ресторан Arman', done:false, due:'2026-05-12', priority:'med' },
-  { id:3, text:'Подготовить смету по вилле на Каспии', project_id:null, project_name:null, done:false, due:'2026-05-06', priority:'high' },
-  { id:4, text:'Встреча с Kaztech по фасадным материалам', project_id:5, project_name:'Офис Kaztech', done:false, due:'2026-05-09', priority:'med' },
-  { id:5, text:'Договор с подрядчиком — роспись', project_id:1, project_name:'Жилой комплекс Nura', done:true, due:'2026-05-05', priority:'' },
-]).write();
+  // Tasks
+  await supabase.rpc('exec_sql', { sql: `
+    CREATE TABLE IF NOT EXISTS tasks (
+      id BIGSERIAL PRIMARY KEY,
+      text TEXT NOT NULL,
+      project_id BIGINT,
+      project_name TEXT,
+      done BOOLEAN DEFAULT FALSE,
+      due DATE,
+      priority TEXT DEFAULT 'med',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  ` }).catch(() => {});
 
-db.set('finance', [
-  { id:1, label:'Жилой комплекс Nura — этап 2', amount:1800000, type:'income', project_id:1, date:'2026-05-03' },
-  { id:2, label:'Дом Сейткали — аванс', amount:600000, type:'income', project_id:3, date:'2026-05-04' },
-  { id:3, label:'Зарплата команды', amount:-850000, type:'expense', project_id:null, date:'2026-05-01' },
-  { id:4, label:'Офис аренда', amount:-180000, type:'expense', project_id:null, date:'2026-05-01' },
-  { id:5, label:'Ресторан Arman — финальный расчёт', amount:2400000, type:'income', project_id:2, date:'2026-05-02' },
-  { id:6, label:'Лицензии ПО', amount:-95000, type:'expense', project_id:null, date:'2026-05-01' },
-]).write();
+  // Finance
+  await supabase.rpc('exec_sql', { sql: `
+    CREATE TABLE IF NOT EXISTS finance (
+      id BIGSERIAL PRIMARY KEY,
+      label TEXT NOT NULL,
+      amount FLOAT NOT NULL,
+      type TEXT DEFAULT 'income',
+      project_id BIGINT,
+      project_name TEXT,
+      date DATE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  ` }).catch(() => {});
 
-db.set('deals', [
-  { id:1, name:'Торговый центр Almaty City', client_id:null, client_name:'AC Group', amount:'9 000 000', stage:'КП отправлено', notes:'' },
-  { id:2, name:'Резиденция Esentai', client_id:null, client_name:'Частный клиент', amount:'3 500 000', stage:'Договор', notes:'' },
-  { id:3, name:'Офис IT-компании', client_id:null, client_name:'Techsoft', amount:'6 200 000', stage:'Переговоры', notes:'' },
-  { id:4, name:'Медицинский центр', client_id:null, client_name:'MedPlus', amount:'9 000 000', stage:'Обращение', notes:'' },
-]).write();
+  // Deals
+  await supabase.rpc('exec_sql', { sql: `
+    CREATE TABLE IF NOT EXISTS deals (
+      id BIGSERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      client_id BIGINT,
+      client_name TEXT,
+      amount TEXT,
+      stage TEXT DEFAULT 'Обращение',
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  ` }).catch(() => {});
 
-db.set('notifications', [
-  { id:1, user_id:1, text:'Дедлайн через 2 дня', sub:'Смета по вилле — 06.05', type:'warn', unread:true, created_at: new Date().toISOString() },
-  { id:2, user_id:1, text:'Новый клиент добавлен', sub:'Moda Group — бутик', type:'ok', unread:true, created_at: new Date().toISOString() },
-]).write();
+  // Notifications
+  await supabase.rpc('exec_sql', { sql: `
+    CREATE TABLE IF NOT EXISTS notifications (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT,
+      text TEXT,
+      sub TEXT,
+      type TEXT DEFAULT 'info',
+      unread BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  ` }).catch(() => {});
 
-console.log('✅ База данных создана!');
-console.log('👤 Логин: admin@deshthaus.kz');
-console.log('🔑 Пароль: admin123');
+  // Files
+  await supabase.rpc('exec_sql', { sql: `
+    CREATE TABLE IF NOT EXISTS files (
+      id BIGSERIAL PRIMARY KEY,
+      name TEXT,
+      original_name TEXT,
+      size TEXT,
+      mime_type TEXT,
+      project_id BIGINT,
+      path TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  ` }).catch(() => {});
+
+  // Check if admin exists
+  const { data: users } = await supabase.from('users').select('id').limit(1);
+  if (!users || users.length === 0) {
+    const hash = bcrypt.hashSync('admin123', 10);
+    await supabase.from('users').insert({ name: 'Ануар Дешт', email: 'admin@deshthaus.kz', password: hash, role: 'admin' });
+    console.log('✅ Создан admin: Ануар Дешт / admin123');
+  } else {
+    console.log('✅ Пользователи уже есть, данные не тронуты');
+  }
+
+  console.log('✅ База данных готова!');
+}
+
+init().catch(console.error);

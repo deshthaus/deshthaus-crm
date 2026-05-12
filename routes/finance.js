@@ -1,55 +1,63 @@
 const router = require('express').Router();
-const db = require('../db/db');
+const supabase = require('../db/supabase');
 
-router.get('/', (req, res) => {
-  const rows = db.get('finance').orderBy('created_at', 'desc').value().map(r => ({
-    ...r,
-    project_name: r.project_id ? (db.get('projects').find({ id: r.project_id }).value() || {}).name : null
-  }));
-  const income  = rows.filter(r => r.amount > 0).reduce((s, r) => s + r.amount, 0);
-  const expense = rows.filter(r => r.amount < 0).reduce((s, r) => s + Math.abs(r.amount), 0);
-  res.json({ rows, income, expense, profit: income - expense });
+router.get('/', async (req, res) => {
+  const { data: rows } = await supabase.from('finance').select('*').order('created_at', { ascending: false });
+  const r = rows || [];
+  const income  = r.filter(x => x.amount > 0).reduce((s, x) => s + x.amount, 0);
+  const expense = r.filter(x => x.amount < 0).reduce((s, x) => s + Math.abs(x.amount), 0);
+  res.json({ rows: r, income, expense, profit: income - expense });
 });
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { label, amount, type, project_id, date } = req.body;
   const val = type === 'expense' ? -Math.abs(Number(amount)) : Math.abs(Number(amount));
-  const r = { id: Date.now(), label, amount: val, type: type || 'income', project_id: project_id ? Number(project_id) : null, date: date || new Date().toISOString().slice(0,10), created_at: new Date().toISOString() };
-  db.get('finance').push(r).write();
-  res.json(r);
+  let project_name = null;
+  if (project_id) {
+    const { data: p } = await supabase.from('projects').select('name').eq('id', project_id).single();
+    project_name = p?.name;
+  }
+  const { data, error } = await supabase.from('finance').insert({ label, amount: val, type: type || 'income', project_id: project_id || null, project_name, date: date || new Date().toISOString().slice(0,10) }).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-router.delete('/:id', (req, res) => {
-  db.get('finance').remove({ id: Number(req.params.id) }).write();
+router.delete('/:id', async (req, res) => {
+  await supabase.from('finance').delete().eq('id', req.params.id);
   res.json({ ok: true });
 });
 
-// Deals
-router.get('/deals', (req, res) => {
-  const deals = db.get('deals').value().map(d => ({
-    ...d,
-    client_name: d.client_id ? (db.get('clients').find({ id: d.client_id }).value() || {}).name : d.client_name
-  }));
-  res.json(deals);
+router.get('/deals', async (req, res) => {
+  const { data } = await supabase.from('deals').select('*').order('created_at', { ascending: false });
+  res.json(data || []);
 });
 
-router.post('/deals', (req, res) => {
+router.post('/deals', async (req, res) => {
   const { name, client_id, amount, stage, notes } = req.body;
-  const client = client_id ? db.get('clients').find({ id: Number(client_id) }).value() : null;
-  const d = { id: Date.now(), name, client_id: client_id ? Number(client_id) : null, client_name: client ? client.name : '', amount: amount || '', stage: stage || 'Обращение', notes: notes || '', created_at: new Date().toISOString() };
-  db.get('deals').push(d).write();
-  res.json(d);
+  let client_name = null;
+  if (client_id) {
+    const { data: c } = await supabase.from('clients').select('name').eq('id', client_id).single();
+    client_name = c?.name;
+  }
+  const { data, error } = await supabase.from('deals').insert({ name, client_id: client_id || null, client_name: client_name || '', amount: amount || '', stage: stage || 'Обращение', notes: notes || '' }).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-router.put('/deals/:id', (req, res) => {
+router.put('/deals/:id', async (req, res) => {
   const { name, client_id, amount, stage, notes } = req.body;
-  const client = client_id ? db.get('clients').find({ id: Number(client_id) }).value() : null;
-  db.get('deals').find({ id: Number(req.params.id) }).assign({ name, client_id: client_id ? Number(client_id) : null, client_name: client ? client.name : '', amount, stage, notes }).write();
-  res.json(db.get('deals').find({ id: Number(req.params.id) }).value());
+  let client_name = null;
+  if (client_id) {
+    const { data: c } = await supabase.from('clients').select('name').eq('id', client_id).single();
+    client_name = c?.name;
+  }
+  await supabase.from('deals').update({ name, client_id: client_id || null, client_name: client_name || '', amount, stage, notes }).eq('id', req.params.id);
+  const { data } = await supabase.from('deals').select('*').eq('id', req.params.id).single();
+  res.json(data);
 });
 
-router.delete('/deals/:id', (req, res) => {
-  db.get('deals').remove({ id: Number(req.params.id) }).write();
+router.delete('/deals/:id', async (req, res) => {
+  await supabase.from('deals').delete().eq('id', req.params.id);
   res.json({ ok: true });
 });
 

@@ -1,41 +1,28 @@
 const router = require('express').Router();
-const db = require('../db/db');
+const supabase = require('../db/supabase');
 
-router.get('/', (req, res) => {
-  res.json(db.get('clients').value());
+router.get('/', async (req, res) => {
+  const { data } = await supabase.from('clients').select('*').order('created_at', { ascending: false });
+  res.json(data || []);
 });
 
-router.post('/', (req, res) => {
-  const { name, type, phone, email, address, budget, budget_max, color, notes } = req.body;
+router.post('/', async (req, res) => {
+  const { name, type, phone, email, budget, budget_max, color, notes } = req.body;
   if (!name) return res.status(400).json({ error: 'Имя обязательно' });
-  const c = {
-    id: Date.now(), name,
-    type: type || 'Частный',
-    phone: phone || '', email: email || '',
-    address: address || '',
-    budget: Number(budget) || 0,
-    budget_max: Number(budget_max) || 0,
-    color: color || '#1a1f5e',
-    notes: notes || '',
-    created_at: new Date().toISOString()
-  };
-  db.get('clients').push(c).write();
-  res.json(c);
+  const { data, error } = await supabase.from('clients').insert({ name, type: type || 'Частный', phone: phone || '', email: email || '', budget: Number(budget) || 0, budget_max: Number(budget_max) || 0, color: color || '#1a1f5e', notes: notes || '' }).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-router.put('/:id', (req, res) => {
-  const { name, type, phone, email, address, budget, budget_max, color, notes } = req.body;
-  db.get('clients').find({ id: Number(req.params.id) }).assign({
-    name, type, phone, email, address,
-    budget: Number(budget) || 0,
-    budget_max: Number(budget_max) || 0,
-    color, notes
-  }).write();
-  res.json(db.get('clients').find({ id: Number(req.params.id) }).value());
+router.put('/:id', async (req, res) => {
+  const { name, type, phone, email, budget, budget_max, color, notes } = req.body;
+  await supabase.from('clients').update({ name, type, phone, email, budget: Number(budget) || 0, budget_max: Number(budget_max) || 0, color, notes }).eq('id', req.params.id);
+  const { data } = await supabase.from('clients').select('*').eq('id', req.params.id).single();
+  res.json(data);
 });
 
-router.delete('/:id', (req, res) => {
-  db.get('clients').remove({ id: Number(req.params.id) }).write();
+router.delete('/:id', async (req, res) => {
+  await supabase.from('clients').delete().eq('id', req.params.id);
   res.json({ ok: true });
 });
 

@@ -24,8 +24,8 @@ app.use('/api/files',         auth, require('./routes/files'));
 app.use('/api/notifications', auth, require('./routes/notifications'));
 app.use('/api/finance',       auth, require('./routes/finance'));
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', db: 'supabase' }));
 
 app.listen(PORT, () => {
-  console.log(`\n✅ Deshthaus CRM запущен: http://localhost:${PORT}`);
+  console.log(`\n✅ Deshthaus CRM запущен на порту ${PORT}`);
 });

@@ -1,53 +1,46 @@
 const router = require('express').Router();
-const db = require('../db/db');
+const supabase = require('../db/supabase');
 
-router.get('/', (req, res) => {
-  const tasks = db.get('tasks').value().map(t => ({
-    ...t,
-    project_name: t.project_id ? (db.get('projects').find({ id: t.project_id }).value() || {}).name : null
-  }));
-  res.json(tasks);
+router.get('/', async (req, res) => {
+  const { data } = await supabase.from('tasks').select('*').order('done').order('due', { nullsFirst: false });
+  res.json(data || []);
 });
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { text, project_id, due, priority } = req.body;
-  if (!text) return res.status(400).json({ error: 'Текст задачи обязателен' });
-  const proj = project_id ? db.get('projects').find({ id: Number(project_id) }).value() : null;
-  const t = {
-    id: Date.now(), text,
-    project_id: project_id ? Number(project_id) : null,
-    project_name: proj ? proj.name : null,
-    done: false,
-    due: due || null,
-    priority: priority || 'med',
-    created_at: new Date().toISOString()
-  };
-  db.get('tasks').push(t).write();
-  res.json(t);
+  if (!text) return res.status(400).json({ error: 'Текст обязателен' });
+  let project_name = null;
+  if (project_id) {
+    const { data: p } = await supabase.from('projects').select('name').eq('id', project_id).single();
+    project_name = p?.name;
+  }
+  const { data, error } = await supabase.from('tasks').insert({ text, project_id: project_id || null, project_name, done: false, due: due || null, priority: priority || 'med' }).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const { text, project_id, due, priority, done } = req.body;
-  const proj = project_id ? db.get('projects').find({ id: Number(project_id) }).value() : null;
-  db.get('tasks').find({ id: Number(req.params.id) }).assign({
-    text,
-    project_id: project_id ? Number(project_id) : null,
-    project_name: proj ? proj.name : null,
-    due, priority,
-    done: !!done
-  }).write();
-  res.json(db.get('tasks').find({ id: Number(req.params.id) }).value());
+  let project_name = null;
+  if (project_id) {
+    const { data: p } = await supabase.from('projects').select('name').eq('id', project_id).single();
+    project_name = p?.name;
+  }
+  await supabase.from('tasks').update({ text, project_id: project_id || null, project_name, due: due || null, priority, done: !!done }).eq('id', req.params.id);
+  const { data } = await supabase.from('tasks').select('*').eq('id', req.params.id).single();
+  res.json(data);
 });
 
-router.patch('/:id/toggle', (req, res) => {
-  const task = db.get('tasks').find({ id: Number(req.params.id) }).value();
+router.patch('/:id/toggle', async (req, res) => {
+  const { data: task } = await supabase.from('tasks').select('done').eq('id', req.params.id).single();
   if (!task) return res.status(404).json({ error: 'Не найдена' });
-  db.get('tasks').find({ id: Number(req.params.id) }).assign({ done: !task.done }).write();
-  res.json(db.get('tasks').find({ id: Number(req.params.id) }).value());
+  await supabase.from('tasks').update({ done: !task.done }).eq('id', req.params.id);
+  const { data } = await supabase.from('tasks').select('*').eq('id', req.params.id).single();
+  res.json(data);
 });
 
-router.delete('/:id', (req, res) => {
-  db.get('tasks').remove({ id: Number(req.params.id) }).write();
+router.delete('/:id', async (req, res) => {
+  await supabase.from('tasks').delete().eq('id', req.params.id);
   res.json({ ok: true });
 });
 
