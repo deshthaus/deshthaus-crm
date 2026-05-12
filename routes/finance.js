@@ -19,6 +19,11 @@ router.post('/', (req, res) => {
   res.json(r);
 });
 
+router.delete('/:id', (req, res) => {
+  db.get('finance').remove({ id: Number(req.params.id) }).write();
+  res.json({ ok: true });
+});
+
 // Deals
 router.get('/deals', (req, res) => {
   const deals = db.get('deals').value().map(d => ({
