@@ -1,7 +1,6 @@
 const router = require('express').Router();
 const supabase = require('../db/supabase');
 
-// Получить все этапы проекта
 router.get('/project/:projectId', async (req, res) => {
   const pid = req.params.projectId;
   const { data: stages } = await supabase.from('stages').select('*').eq('project_id', pid).order('order_index');
@@ -23,7 +22,6 @@ router.get('/project/:projectId', async (req, res) => {
   res.json(result);
 });
 
-// Создать этап
 router.post('/', async (req, res) => {
   const { project_id, name, order_index } = req.body;
   const { data, error } = await supabase.from('stages').insert({ project_id, name, order_index: order_index || 0 }).select().single();
@@ -45,7 +43,6 @@ router.delete('/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
-// Создать подэтап
 router.post('/substage', async (req, res) => {
   const { stage_id, project_id, name, order_index } = req.body;
   const { data, error } = await supabase.from('substages').insert({ stage_id, project_id, name, order_index: order_index || 0 }).select().single();
@@ -66,37 +63,48 @@ router.delete('/substage/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
-// Создать задачу с несколькими исполнителями
+// Создать задачу
 router.post('/task', async (req, res) => {
   const { substage_id, stage_id, project_id, text, assignees, due, priority } = req.body;
   const assigneesList = assignees || [];
-
   const { data, error } = await supabase.from('stage_tasks').insert({
-    substage_id: substage_id || null,
-    stage_id, project_id, text,
+    substage_id: substage_id || null, stage_id, project_id, text,
     assigned_to: assigneesList[0]?.id || null,
     assigned_name: assigneesList[0]?.name || null,
     assignees: assigneesList,
     done: false, due: due || null, priority: priority || 'med'
   }).select().single();
-
   if (error) return res.status(500).json({ error: error.message });
-
-  // Уведомления всем исполнителям
   for (const a of assigneesList) {
-    await supabase.from('notifications').insert({
-      user_id: a.id,
-      text: 'Вам назначена задача',
-      sub: text,
-      type: 'warn',
-      unread: true
-    });
+    await supabase.from('notifications').insert({ user_id: a.id, text: 'Вам назначена задача', sub: text, type: 'warn', unread: true });
   }
-
   res.json(data);
 });
 
-// Переключить задачу
+// Редактировать задачу
+router.put('/task/:id', async (req, res) => {
+  const { text, assignees, due, priority } = req.body;
+  const assigneesList = assignees || [];
+  const { data: old } = await supabase.from('stage_tasks').select('assignees,text').eq('id', req.params.id).single();
+
+  await supabase.from('stage_tasks').update({
+    text, assignees: assigneesList,
+    assigned_to: assigneesList[0]?.id || null,
+    assigned_name: assigneesList[0]?.name || null,
+    due: due || null, priority
+  }).eq('id', req.params.id);
+
+  // Уведомление новым исполнителям
+  const oldIds = (old?.assignees || []).map(a => a.id);
+  const newAssignees = assigneesList.filter(a => !oldIds.includes(a.id));
+  for (const a of newAssignees) {
+    await supabase.from('notifications').insert({ user_id: a.id, text: 'Вам назначена задача', sub: text, type: 'warn', unread: true });
+  }
+
+  const { data } = await supabase.from('stage_tasks').select('*').eq('id', req.params.id).single();
+  res.json(data);
+});
+
 router.patch('/task/:id/toggle', async (req, res) => {
   const { data: task } = await supabase.from('stage_tasks').select('done').eq('id', req.params.id).single();
   await supabase.from('stage_tasks').update({ done: !task.done }).eq('id', req.params.id);
